@@ -1,0 +1,38 @@
+头条图片去水印 PWA — 部署说明（v1.0.3）
+==========================================
+
+一、上传
+把本压缩包内全部文件（保持目录结构）上传到你的静态托管站点根目录：
+  index.html
+  sw.js
+  manifest.json
+  css/style.css
+  js/strip.js
+  js/app.js
+  icons/icon-192.png
+  icons/icon-512.png
+  icons/icon-maskable-192.png
+  icons/icon-maskable-512.png
+
+二、托管平台要求（重要）
+1. 必须是「正规静态托管」，且支持 HTTPS——Service Worker、离线缓存、「安装到桌面」都依赖它。
+   ✅ 可用：EdgeOne Pages、Cloudflare Pages、GitHub Pages、Vercel、自有服务器（Nginx 等）
+   ❌ 不可用：html2link.dev 等短链预览类服务——它们强制加 CSP sandbox 响应头，
+      浏览器会直接禁用 Service Worker，安装时必报「无法安装此应用」。
+2. manifest.json 需以 JSON 类型（application/json 或 application/manifest+json）返回。
+   主流托管对 .json 都没问题；若你的服务器返回 octet-stream，请加一条 MIME 映射。
+
+三、没有 HTTPS 时怎么先测试
+局域网直访核心功能（选图/去水印/保存）完全可用，仅无离线缓存与安装：
+  电脑上运行  python -m http.server 8642 --bind 0.0.0.0
+  手机同 Wi-Fi 访问  http://<电脑IP>:8642
+
+四、安装到桌面
+安卓 Chrome/Edge：访问后用菜单「安装应用 / 添加到主屏幕」，或页面右上角出现的「安装」按钮。
+鸿蒙华为浏览器：菜单「添加到桌面」。
+安装前请至少成功打开过一次页面，让 Service Worker 完成预缓存；
+之后即使网站链接失效，从桌面图标打开（同一浏览器）应用依然完整可用。
+
+五、更新版本
+改了任何前端文件后，必须把 sw.js 顶部的 VERSION 版本号 +1（如 v1.0.3 → v1.0.4）再部署，
+否则老用户的浏览器会一直用旧缓存（cache-first 策略）。用户侧刷新两次即接管新版本。

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>头条图片去水印</title>
+  <meta name="description" content="自动裁掉头条图片底部的水印条带，全部处理在手机本地完成">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F2F2F7">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="去水印">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- 毛玻璃导航条（滚动后折叠为紧凑标题） -->
+  <header class="nav" id="nav">
+    <div class="nav-title" id="navTitle">头条去水印</div>
+    <button type="button" class="chip" id="installBtn" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      安装
+    </button>
+  </header>
+
+  <main id="main">
+    <!-- 托管环境异常提示（SW 被禁用时显示） -->
+    <div class="env-warn" id="envWarn" hidden></div>
+    <!-- 大标题 -->
+    <div class="large-title">
+      <h1>头条去水印</h1>
+      <p class="subtitle">自动裁掉图片底部的水印条带</p>
+    </div>
+
+    <!-- 空状态 -->
+    <section class="empty" id="emptyState">
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4.5" width="18" height="15" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <circle cx="9" cy="10" r="1.7" fill="currentColor"/>
+          <path d="M4.5 17.5l4.6-4.3a1.8 1.8 0 0 1 2.5 0l2 1.9m0 0l2.4-2.2a1.8 1.8 0 0 1 2.5.03l2.9 2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>选择图片开始处理</h2>
+      <p>支持多选。水印条带将被直接裁掉，<br>处理全部在本机完成，图片不会上传。</p>
+      <button type="button" class="btn btn-primary btn-block" id="pickBtn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        选择图片
+      </button>
+    </section>
+
+    <!-- 处理结果 -->
+    <section id="gallery" hidden>
+      <div class="stats-row">
+        <div class="stats-pill" id="statsPill" aria-live="polite"></div>
+        <button type="button" class="chip" id="addMoreBtn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          添加
+        </button>
+      </div>
+      <div class="grid" id="grid"></div>
+      <p class="footnote">处理在本机完成，图片不会上传；保存的图片通常在浏览器的「下载」目录。</p>
+    </section>
+  </main>
+
+  <!-- 悬浮操作栏 -->
+  <div class="bottom-bar" id="bottomBar" hidden>
+    <button type="button" class="btn btn-secondary" id="saveEachBtn">逐张保存</button>
+    <button type="button" class="btn btn-primary" id="saveAllBtn">保存全部</button>
+    <button type="button" class="btn btn-ghost" id="clearBtn" aria-label="清空">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 6.5h15M9.5 6.5V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v1.5m-8 0l.7 11.6a2 2 0 0 0 2 1.9h5.6a2 2 0 0 0 2-1.9l.7-11.6M10 10.5v5.5m4-5.5v5.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*" multiple hidden>
+
+  <!-- 图片预览面板（可下拉关闭） -->
+  <div class="scrim" id="scrim" hidden></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="图片预览" hidden>
+    <div class="sheet-grabber" id="sheetGrabber"></div>
+    <div class="sheet-head" id="sheetHead">
+      <div class="sheet-name" id="sheetName"></div>
+      <button type="button" class="icon-btn" id="sheetClose" aria-label="关闭">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <img id="sheetImg" alt="预览图片">
+      <div class="sheet-meta">
+        <span class="badge" id="sheetBadge"></span>
+        <span class="sheet-dims" id="sheetDims"></span>
+      </div>
+      <p class="sheet-reason" id="sheetReason" hidden></p>
+    </div>
+  </div>
+
+  <!-- 逐张保存引导 -->
+  <div class="guided" id="guided" role="dialog" aria-modal="true" aria-label="逐张保存" hidden>
+    <div class="guided-card">
+      <h3>逐张保存</h3>
+      <p id="guidedSub">每点击一次保存一张，任何浏览器都不会拦截。</p>
+      <button type="button" class="btn btn-primary btn-block" id="guidedNext">保存 1/1</button>
+      <button type="button" class="btn btn-plain" id="guidedCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- HUD 轻提示 -->
+  <div class="hud" id="hud" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span id="hudText"></span>
+  </div>
+
+  <script src="js/strip.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
