@@ -19,6 +19,7 @@
     scrim: $('scrim'), sheet: $('sheet'), sheetImg: $('sheetImg'), sheetName: $('sheetName'),
     sheetBadge: $('sheetBadge'), sheetDims: $('sheetDims'), sheetReason: $('sheetReason'),
     sheetClose: $('sheetClose'), sheetGrabber: $('sheetGrabber'), sheetHead: $('sheetHead'),
+    sheetReason: $('sheetReason'), sheetHint: $('sheetHint'),
     guided: $('guided'), guidedTitle: $('guidedTitle'), guidedNext: $('guidedNext'), guidedSub: $('guidedSub'), guidedCancel: $('guidedCancel'),
     hud: $('hud'), hudText: $('hudText'), envWarn: $('envWarn'), galleryBtn: $('galleryBtn'),
   };
@@ -35,6 +36,8 @@
   };
 
   var shareSupported = (function () {
+    // ?nofshare=1 调试：模拟鸿蒙 ArkWeb 等不开放网页文件分享的环境
+    if (/(?:^|[?&])nofshare=1/.test(location.search)) return false;
     try {
       var f = new File(['x'], 'a.png', { type: 'image/png' });
       return !!(navigator.canShare && navigator.canShare({ files: [f] }));
@@ -173,7 +176,7 @@
     els.bottomBar.hidden = n === 0;
     els.saveAllBtn.disabled = !done || state.saveBusy;
     els.saveEachBtn.disabled = !done || state.saveBusy;
-    els.galleryBtn.hidden = !shareSupported;
+    els.galleryBtn.hidden = !(shareSupported || IS_HARMONY);
     els.galleryBtn.disabled = !done || state.saveBusy;
     els.clearBtn.disabled = state.saveBusy;
     if (!state.saveBusy) {
@@ -238,6 +241,17 @@
 
   function updateGuided() {
     var g = state.guided;
+    if (g.mode === 'manual') {
+      els.guidedTitle.textContent = '无法调起系统分享';
+      els.guidedNext.textContent = '知道了';
+      els.guidedSub.textContent =
+        '当前浏览器的网页分享能力不可用（鸿蒙部分内核未开放）。' +
+        '这样也能把图存进相册：\n' +
+        '1. 点图片打开预览，长按大图选「保存图片」（最可靠）\n' +
+        '2. 或点「下载」，再到文件管理器把图片移动到 Pictures 文件夹\n' +
+        '3. 或换用华为浏览器最新版后重试「存入相册」';
+      return;
+    }
     var tip = g.mode === 'share' ? '（在分享面板中选「保存到图库」）' : '';
     els.guidedNext.textContent = (g.mode === 'share' ? '存入相册 ' : '保存 ') + (g.index + 1) + '/' + g.list.length;
     els.guidedSub.textContent = '第 ' + (g.index + 1) + ' 张：' + g.list[g.index].name + tip;
@@ -259,7 +273,9 @@
   }
 
   /* 存入相册：鸿蒙 5+ 的图库不索引浏览器下载的文件，
-     唯一可靠的网页侧通道是 Web Share 交给系统（分享面板里选「保存到图库」）。 */
+     正道是 Web Share 交给系统（分享面板选「保存到图库」）。
+     但鸿蒙 ArkWeb 内核可能不向网页开放文件分享能力（canShare 谎报/缺失），
+     所以鸿蒙上按钮常显、点击时乐观尝试一次；真不可用则给出手动方案指引。 */
   function asGalleryFile(item, name) {
     var blob = item.result.blob;
     return new File([blob], name, { type: blob.type || item.result.mime });
@@ -269,31 +285,41 @@
     var done = state.items.filter(function (i) { return i.status === 'done'; });
     if (!done.length || state.saveBusy) return;
     var names = allocateNames(done);
+    var files = done.map(function (it, k) { return asGalleryFile(it, names[k]); });
 
-    // 单张：点击手势内直接调起分享面板
-    if (done.length === 1) {
+    // 特性检测明确支持：单张直发，多张优先整体分享，多张被拒则逐张引导
+    if (shareSupported) {
+      if (files.length === 1) {
+        try {
+          await navigator.share({ files: files });
+          showHud('已交给系统保存');
+          buzz(12);
+        } catch (e) { /* 用户取消 */ }
+        return;
+      }
       try {
-        await navigator.share({ files: [asGalleryFile(done[0], names[0])] });
-        showHud('已交给系统保存');
-        buzz(12);
-      } catch (e) { /* 用户取消 */ }
+        if (navigator.canShare && navigator.canShare({ files: files })) {
+          await navigator.share({ files: files, title: '去水印图片' });
+          showHud('已交给系统保存 ' + files.length + ' 张');
+          buzz(12);
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+      startGuided('share');
       return;
     }
 
-    // 多张：优先一次整体分享；系统不支持多文件分享时退回逐张引导
+    // 检测不到能力（如鸿蒙 ArkWeb）：在手势内乐观尝试一次，真不支持再给手动指引
     try {
-      var files = done.map(function (it, k) { return asGalleryFile(it, names[k]); });
-      if (navigator.canShare && navigator.canShare({ files: files })) {
-        await navigator.share({ files: files, title: '去水印图片' });
-        showHud('已交给系统保存 ' + files.length + ' 张');
-        buzz(12);
-        return;
-      }
+      await navigator.share({ files: files, title: '去水印图片' });
+      showHud('已交给系统保存' + (files.length > 1 ? ' ' + files.length + ' 张' : ''));
+      buzz(12);
     } catch (e) {
-      if (e && e.name === 'AbortError') return; // 用户主动取消分享面板
-      /* 其他错误 → 走逐张引导 */
+      if (e && e.name === 'AbortError') return; // 分享面板存在，用户主动取消
+      startGuided('manual');
     }
-    startGuided('share');
   }
 
   function allocateNames(items) {
@@ -348,6 +374,14 @@
       if (item.reason) { reason.textContent = item.reason; reason.hidden = false; }
     } else {
       b.textContent = item.status === 'processing' ? '处理中…' : '等待处理';
+    }
+
+    // 鸿蒙且分享不可用时，教用户最可靠的手动存图路径
+    if (IS_HARMONY && !shareSupported) {
+      els.sheetHint.textContent = '提示：长按上方图片 → 选「保存图片」，可直接存入相册';
+      els.sheetHint.hidden = false;
+    } else {
+      els.sheetHint.hidden = true;
     }
 
     els.sheet.hidden = false;
@@ -492,6 +526,12 @@
   els.guidedNext.addEventListener('click', async function () {
     var g = state.guided;
     if (!g) return;
+
+    if (g.mode === 'manual') {
+      endGuided();
+      return;
+    }
+
     var item = g.list[g.index];
 
     if (g.mode === 'share') {
@@ -506,7 +546,11 @@
         } else {
           updateGuided();
         }
-      } catch (e) { /* 用户取消：停在当前张可重试 */ }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // 用户取消：停在当前张可重试
+        endGuided();
+        startGuided('manual'); // 分享真不可用 → 转手动指引
+      }
       return;
     }
 

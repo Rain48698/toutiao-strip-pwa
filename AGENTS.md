@@ -55,7 +55,7 @@ crop_h = clamp(trunc(宽 × 0.06), 40, 150)     # int 截断，不四舍五入
 1. **格式矩阵**：JPEG / PNG / WebP 处理；GIF、BMP、AVIF、HEIC 跳过并注明原因（Canvas 无法原格式导出/解码，符合规格「格式不识别就跳过」）。WebP 编码不可用时自动回退 PNG 并改扩展名。
 2. **EXIF 方向**：`createImageBitmap(blob, {imageOrientation:'from-image'})` 显式转正（回退 `<img>`），裁的是「所见坐标」，预览即结果。
 3. **逐张下载策略**（用户选定）：批量=同一次手势内 400ms 间隔连发 `a[download]`（Chrome 系弹一次「允许多文件下载」授权）；**逐张保存引导模式=每点一次只触发 1 个下载，任何浏览器都不会拦**（鸿蒙兜底）。blob URL 延迟 10s 再 revoke。
-4. **鸿蒙 5+ 入相册必须走 Web Share**（实测：鸿蒙图库不索引浏览器下载的文件，下载只进文件管理器）：「存入相册」按钮用 `navigator.share({files})` 把图交给系统保存到图库；鸿蒙 UA（/openharmony|harmonyos/i，或 `?harmony=1` 调试）下它自动升为主按钮、批量下载降级为「下载」。多张优先一次整体分享，`canShare` 拒绝多文件时进入逐张分享引导。Edge 鸿蒙版「添加至手机」置灰是其自身 PWA 判定限制，网页侧无解，引导用户用华为浏览器「添加到桌面」。
+4. **鸿蒙 5+ 入相册必须走 Web Share**（实测：鸿蒙图库不索引浏览器下载的文件，下载只进文件管理器）：「存入相册」按钮用 `navigator.share({files})` 把图交给系统保存到图库；鸿蒙 UA（/openharmony|harmonyos/i，或 `?harmony=1` 调试）下它自动升为主按钮、批量下载降级为「下载」。多张优先一次整体分享，`canShare` 拒绝多文件时进入逐张分享引导。**鸿蒙 ArkWeb 可能不向网页开放文件分享能力（canShare 返回 false/缺失）**——此时按钮仍常显，点击在手势内乐观尝试一次 `navigator.share`，抛错则弹「无法调起系统分享」手动指引（长按预览大图存图片 / 移动到 Pictures / 换华为浏览器），预览面板同步显示长按提示。Edge 鸿蒙版「添加至手机」置灰是其自身 PWA 判定限制，网页侧无解，引导用户用华为浏览器「添加到桌面」。
 5. **CSS `[hidden]{display:none !important}`**：author 的 `display:grid/flex` 会覆盖 `hidden` 属性的 UA 默认值导致隐藏弹层照常渲染，此规则是兜底，勿删。
 6. **SW 版本更新**：`sw.js` VERSION 升号 + 两次刷新完成接管（install 预缓存 → skipWaiting → claim）。
 
