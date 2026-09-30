@@ -19,8 +19,8 @@
     scrim: $('scrim'), sheet: $('sheet'), sheetImg: $('sheetImg'), sheetName: $('sheetName'),
     sheetBadge: $('sheetBadge'), sheetDims: $('sheetDims'), sheetReason: $('sheetReason'),
     sheetClose: $('sheetClose'), sheetGrabber: $('sheetGrabber'), sheetHead: $('sheetHead'),
-    guided: $('guided'), guidedNext: $('guidedNext'), guidedSub: $('guidedSub'), guidedCancel: $('guidedCancel'),
-    hud: $('hud'), hudText: $('hudText'), envWarn: $('envWarn'),
+    guided: $('guided'), guidedTitle: $('guidedTitle'), guidedNext: $('guidedNext'), guidedSub: $('guidedSub'), guidedCancel: $('guidedCancel'),
+    hud: $('hud'), hudText: $('hudText'), envWarn: $('envWarn'), galleryBtn: $('galleryBtn'),
   };
 
   var SVG_DL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v9.5m0 0l-3.8-3.8M12 14l3.8-3.8M5 18.5h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -40,6 +40,11 @@
       return !!(navigator.canShare && navigator.canShare({ files: [f] }));
     } catch (e) { return false; }
   })();
+
+  // 鸿蒙 5+（含 OpenHarmony UA）：浏览器下载不进图库，系统分享（Web Share）才是入相册的正道。
+  // ?harmony=1 可强制启用该模式便于桌面调试。
+  var IS_HARMONY = /openharmony|harmonyos/i.test(navigator.userAgent) || /(?:^|[?&])harmony=1/.test(location.search);
+  var HARMONY_GALLERY_FIRST = IS_HARMONY && shareSupported;
 
   /* ---------------- 选图与队列 ---------------- */
 
@@ -168,8 +173,18 @@
     els.bottomBar.hidden = n === 0;
     els.saveAllBtn.disabled = !done || state.saveBusy;
     els.saveEachBtn.disabled = !done || state.saveBusy;
+    els.galleryBtn.hidden = !shareSupported;
+    els.galleryBtn.disabled = !done || state.saveBusy;
     els.clearBtn.disabled = state.saveBusy;
-    if (!state.saveBusy) els.saveAllBtn.textContent = done ? '保存全部 (' + done + ')' : '保存全部';
+    if (!state.saveBusy) {
+      if (HARMONY_GALLERY_FIRST) {
+        // 鸿蒙：主按钮走系统分享入相册，下载降级为次要入口
+        els.saveAllBtn.textContent = '下载';
+        els.galleryBtn.textContent = '存入相册';
+      } else {
+        els.saveAllBtn.textContent = done ? '保存全部 (' + done + ')' : '保存全部';
+      }
+    }
 
     var parts = ['共 <b>' + n + '</b>'];
     if (busy) parts.push('处理中 ' + busy);
@@ -181,8 +196,7 @@
 
   /* ---------------- 保存 ---------------- */
 
-  function downloadBlob(blob, filename) {
-    var url = URL.createObjectURL(blob);
+  function downloadBlob(blob, filename) {    var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -213,18 +227,20 @@
     }
   }
 
-  function startGuided() {
+  function startGuided(mode) {
     var done = state.items.filter(function (i) { return i.status === 'done'; });
     if (!done.length) return;
-    state.guided = { list: done, names: allocateNames(done), index: 0 };
+    state.guided = { list: done, names: allocateNames(done), index: 0, mode: mode || 'download' };
+    els.guidedTitle.textContent = state.guided.mode === 'share' ? '逐张存入相册' : '逐张保存';
     els.guided.hidden = false;
     updateGuided();
   }
 
   function updateGuided() {
     var g = state.guided;
-    els.guidedNext.textContent = '保存 ' + (g.index + 1) + '/' + g.list.length;
-    els.guidedSub.textContent = '第 ' + (g.index + 1) + ' 张：' + g.list[g.index].name;
+    var tip = g.mode === 'share' ? '（在分享面板中选「保存到图库」）' : '';
+    els.guidedNext.textContent = (g.mode === 'share' ? '存入相册 ' : '保存 ') + (g.index + 1) + '/' + g.list.length;
+    els.guidedSub.textContent = '第 ' + (g.index + 1) + ' 张：' + g.list[g.index].name + tip;
   }
 
   function endGuided() {
@@ -240,6 +256,44 @@
         await navigator.share({ files: [file], title: file.name });
       }
     } catch (e) { /* 用户取消分享 */ }
+  }
+
+  /* 存入相册：鸿蒙 5+ 的图库不索引浏览器下载的文件，
+     唯一可靠的网页侧通道是 Web Share 交给系统（分享面板里选「保存到图库」）。 */
+  function asGalleryFile(item, name) {
+    var blob = item.result.blob;
+    return new File([blob], name, { type: blob.type || item.result.mime });
+  }
+
+  async function saveToGallery() {
+    var done = state.items.filter(function (i) { return i.status === 'done'; });
+    if (!done.length || state.saveBusy) return;
+    var names = allocateNames(done);
+
+    // 单张：点击手势内直接调起分享面板
+    if (done.length === 1) {
+      try {
+        await navigator.share({ files: [asGalleryFile(done[0], names[0])] });
+        showHud('已交给系统保存');
+        buzz(12);
+      } catch (e) { /* 用户取消 */ }
+      return;
+    }
+
+    // 多张：优先一次整体分享；系统不支持多文件分享时退回逐张引导
+    try {
+      var files = done.map(function (it, k) { return asGalleryFile(it, names[k]); });
+      if (navigator.canShare && navigator.canShare({ files: files })) {
+        await navigator.share({ files: files, title: '去水印图片' });
+        showHud('已交给系统保存 ' + files.length + ' 张');
+        buzz(12);
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // 用户主动取消分享面板
+      /* 其他错误 → 走逐张引导 */
+    }
+    startGuided('share');
   }
 
   function allocateNames(items) {
@@ -432,12 +486,30 @@
     e.target.value = '';
   });
   els.saveAllBtn.addEventListener('click', saveAll);
-  els.saveEachBtn.addEventListener('click', startGuided);
+  els.galleryBtn.addEventListener('click', saveToGallery);
+  els.saveEachBtn.addEventListener('click', function () { startGuided('download'); });
   els.clearBtn.addEventListener('click', clearAll);
-  els.guidedNext.addEventListener('click', function () {
+  els.guidedNext.addEventListener('click', async function () {
     var g = state.guided;
     if (!g) return;
     var item = g.list[g.index];
+
+    if (g.mode === 'share') {
+      try {
+        await navigator.share({ files: [asGalleryFile(item, g.names[g.index])] });
+        buzz(8);
+        g.index++;
+        if (g.index >= g.list.length) {
+          endGuided();
+          showHud('已存入相册 ' + g.list.length + ' 张');
+          buzz(20);
+        } else {
+          updateGuided();
+        }
+      } catch (e) { /* 用户取消：停在当前张可重试 */ }
+      return;
+    }
+
     downloadBlob(item.result.blob, g.names[g.index]);
     buzz(8);
     g.index++;
@@ -472,8 +544,25 @@
     markSwUnavailable();
   }
 
+  // 按钮主题：鸿蒙上「存入相册」为主按钮且排在最前
+  (function applyBarTheme() {
+    if (HARMONY_GALLERY_FIRST) {
+      els.galleryBtn.classList.add('btn-primary');
+      els.galleryBtn.classList.remove('btn-secondary');
+      els.saveAllBtn.classList.add('btn-secondary');
+      els.saveAllBtn.classList.remove('btn-primary');
+    } else {
+      els.bottomBar.insertBefore(els.saveAllBtn, els.galleryBtn);
+    }
+  })();
+
   updateChrome();
 
   // 测试钩子（冒烟测试用）
-  window.__app = { addFiles: addFiles, state: state };
+  window.__app = {
+    addFiles: addFiles,
+    state: state,
+    shareSupported: shareSupported,
+    isHarmony: IS_HARMONY,
+  };
 })();

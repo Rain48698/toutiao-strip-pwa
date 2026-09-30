@@ -55,8 +55,9 @@ crop_h = clamp(trunc(宽 × 0.06), 40, 150)     # int 截断，不四舍五入
 1. **格式矩阵**：JPEG / PNG / WebP 处理；GIF、BMP、AVIF、HEIC 跳过并注明原因（Canvas 无法原格式导出/解码，符合规格「格式不识别就跳过」）。WebP 编码不可用时自动回退 PNG 并改扩展名。
 2. **EXIF 方向**：`createImageBitmap(blob, {imageOrientation:'from-image'})` 显式转正（回退 `<img>`），裁的是「所见坐标」，预览即结果。
 3. **逐张下载策略**（用户选定）：批量=同一次手势内 400ms 间隔连发 `a[download]`（Chrome 系弹一次「允许多文件下载」授权）；**逐张保存引导模式=每点一次只触发 1 个下载，任何浏览器都不会拦**（鸿蒙兜底）。blob URL 延迟 10s 再 revoke。
-4. **CSS `[hidden]{display:none !important}`**：author 的 `display:grid/flex` 会覆盖 `hidden` 属性的 UA 默认值导致隐藏弹层照常渲染，此规则是兜底，勿删。
-5. **SW 版本更新**：`sw.js` VERSION 升号 + 两次刷新完成接管（install 预缓存 → skipWaiting → claim）。
+4. **鸿蒙 5+ 入相册必须走 Web Share**（实测：鸿蒙图库不索引浏览器下载的文件，下载只进文件管理器）：「存入相册」按钮用 `navigator.share({files})` 把图交给系统保存到图库；鸿蒙 UA（/openharmony|harmonyos/i，或 `?harmony=1` 调试）下它自动升为主按钮、批量下载降级为「下载」。多张优先一次整体分享，`canShare` 拒绝多文件时进入逐张分享引导。Edge 鸿蒙版「添加至手机」置灰是其自身 PWA 判定限制，网页侧无解，引导用户用华为浏览器「添加到桌面」。
+5. **CSS `[hidden]{display:none !important}`**：author 的 `display:grid/flex` 会覆盖 `hidden` 属性的 UA 默认值导致隐藏弹层照常渲染，此规则是兜底，勿删。
+6. **SW 版本更新**：`sw.js` VERSION 升号 + 两次刷新完成接管（install 预缓存 → skipWaiting → claim）。
 
 ## 设计决策（Apple / iOS 风格）
 
@@ -67,6 +68,7 @@ crop_h = clamp(trunc(宽 × 0.06), 40, 150)     # int 截断，不四舍五入
 
 ## 完成度备忘（2026-09-30）
 
-- 已实现：多选图片 → 自动逐张去水印 → 一键保存（批量 + 逐张引导兜底）+ 单张下载/系统分享 + 预览面板 + 深色模式 + 离线缓存 + 安装到桌面。
+- 已部署：GitHub Pages https://rain48698.github.io/toutiao-strip-pwa/ （仓库 Rain48698/toutiao-strip-pwa，main 根目录托管，push 即自动构建）。
+- 已实现：多选图片 → 自动逐张去水印 → 保存（批量下载 / 逐张引导 / 鸿蒙走 Web Share 存相册）+ 单张下载/分享 + 预览面板 + 深色模式 + 离线缓存 + 安装到桌面。
 - 冒烟测试已过：裁切公式（48/64/40px 三档）、小图与 GIF 跳过、批量/逐张下载触发、HUD、SW 注册、无控制台报错。
-- 待真机验证：鸿蒙/安卓自带浏览器的「允许多文件下载」授权弹窗、「添加到桌面」路径、Web Share 存相册入口。
+- 待真机验证：鸿蒙图库经分享面板入相册的实际效果、多张整体分享在鸿蒙分享面板的兼容性、华为浏览器「添加到桌面」路径。

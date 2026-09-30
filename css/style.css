@@ -440,8 +440,10 @@ svg { display: block; }
   animation: barIn 500ms var(--ease-sheet) both;
 }
 
-.bottom-bar .btn-primary { flex: 1.35; }
-.bottom-bar .btn-secondary { flex: 1; }
+.bottom-bar .btn { font-size: 15.5px; padding: 0 10px; letter-spacing: 0; }
+.bottom-bar .btn-gallery { flex: 1.18; }
+.bottom-bar .btn-save { flex: 1.08; }
+.bottom-bar .btn-each { flex: 0.74; }
 
 /* ---------- 预览面板（底部 sheet） ---------- */
 

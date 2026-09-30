@@ -2,7 +2,7 @@
  * 版本化预缓存应用壳（cache-first），离线可用；activate 清理旧缓存。
  * 注意：SW 仅在 HTTPS（或 localhost）下注册；局域网 http 调试时核心功能不受影响。
  */
-const VERSION = 'v1.0.3';
+const VERSION = 'v1.0.4';
 const CACHE_NAME = `toutiao-strip-${VERSION}`;
 const PRECACHE = [
   './',

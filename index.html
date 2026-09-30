@@ -69,8 +69,9 @@
 
   <!-- 悬浮操作栏 -->
   <div class="bottom-bar" id="bottomBar" hidden>
-    <button type="button" class="btn btn-secondary" id="saveEachBtn">逐张保存</button>
-    <button type="button" class="btn btn-primary" id="saveAllBtn">保存全部</button>
+    <button type="button" class="btn btn-secondary btn-gallery" id="galleryBtn" hidden>存入相册</button>
+    <button type="button" class="btn btn-primary btn-save" id="saveAllBtn">保存全部</button>
+    <button type="button" class="btn btn-secondary btn-each" id="saveEachBtn">逐张</button>
     <button type="button" class="btn btn-ghost" id="clearBtn" aria-label="清空">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 6.5h15M9.5 6.5V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v1.5m-8 0l.7 11.6a2 2 0 0 0 2 1.9h5.6a2 2 0 0 0 2-1.9l.7-11.6M10 10.5v5.5m4-5.5v5.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
@@ -101,7 +102,7 @@
   <!-- 逐张保存引导 -->
   <div class="guided" id="guided" role="dialog" aria-modal="true" aria-label="逐张保存" hidden>
     <div class="guided-card">
-      <h3>逐张保存</h3>
+      <h3 id="guidedTitle">逐张保存</h3>
       <p id="guidedSub">每点击一次保存一张，任何浏览器都不会拦截。</p>
       <button type="button" class="btn btn-primary btn-block" id="guidedNext">保存 1/1</button>
       <button type="button" class="btn btn-plain" id="guidedCancel">取消</button>
