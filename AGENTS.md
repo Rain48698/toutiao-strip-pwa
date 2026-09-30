@@ -68,7 +68,7 @@ crop_h = clamp(trunc(宽 × 0.06), 40, 150)     # int 截断，不四舍五入
 
 ## 完成度备忘（2026-09-30）
 
-- 已部署：GitHub Pages https://rain48698.github.io/toutiao-strip-pwa/ （仓库 Rain48698/toutiao-strip-pwa，main 根目录托管，push 即自动构建）。
+- 已部署：GitHub Pages https://rain48698.github.io/toutiao-watermark-remover/ （仓库 Rain48698/toutiao-watermark-remover，main 根目录托管，push 即自动构建；旧仓库 toutiao-strip-pwa 为同内容旧链接，仍可用）。
 - 已实现：多选图片 → 自动逐张去水印 → 保存（批量下载 / 逐张引导 / 鸿蒙走 Web Share 存相册）+ 单张下载/分享 + 预览面板 + 深色模式 + 离线缓存 + 安装到桌面。
 - 冒烟测试已过：裁切公式（48/64/40px 三档）、小图与 GIF 跳过、批量/逐张下载触发、HUD、SW 注册、无控制台报错。
 - 待真机验证：鸿蒙图库经分享面板入相册的实际效果、多张整体分享在鸿蒙分享面板的兼容性、华为浏览器「添加到桌面」路径。

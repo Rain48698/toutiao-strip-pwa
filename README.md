@@ -2,7 +2,7 @@
 
 裁掉今日头条图片右下角水印条带的纯前端小工具。多选图片 → 自动去水印 → 一键保存，全部处理在手机本地完成，图片不上传。
 
-**在线使用**：https://rain48698.github.io/toutiao-strip-pwa/
+**在线使用**：https://rain48698.github.io/toutiao-watermark-remover/
 
 - 安卓 Chrome / Edge：菜单「安装应用 / 添加到主屏幕」，或页面右上角「安装」按钮
 - 鸿蒙华为浏览器：菜单「添加到桌面」
